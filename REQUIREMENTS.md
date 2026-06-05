@@ -1,261 +1,198 @@
-# 儿童任务打卡与积分奖励 Web 应用 - 完整需求
+# 功能需求文档
 
-## 项目概述
-面向 1-12 岁儿童的"任务打卡与积分奖励" Web 应用，通过"完成任务赚取积分"和"消耗积分兑换奖励"机制，帮助小朋友养成良好日常习惯。
+## 1. 用户系统
 
-## 技术栈
-- 后端：Python Flask + SQLite
-- 前端：单页面 HTML + Tailwind CSS + Alpine.js（轻量响应式）
-- 认证：JWT token
-- 文件上传：本地存储
-- 端口：8080
-- **所有代码写在一个项目里，Flask 同时 serve 前端静态文件**
+### 1.1 注册
+- 角色选择：家长/孩子
+- 用户名 + 密码（bcrypt 加密）
+- 孩子注册需填写家庭邀请码
+- 头像：选择 emoji 表情
 
-## 核心功能
+### 1.2 登录
+- 用户名 + 密码登录
+- JWT Token 认证
+- Token 有效期管理
 
-### 1. 多用户与权限
-- 注册/登录，每个家庭独立账号
-- 角色：child（儿童）和 parent（家长）
-- 注册时选择角色，同一家庭通过"家庭邀请码"关联
-- 数据严格隔离（按 family_id）
+### 1.3 权限
+- 家长：管理任务、审核打卡、管理商品、查看统计
+- 孩子：打卡、查看积分、兑换商品
 
-### 2. 任务与积分（赚取）
-- 家长创建/编辑日常任务列表（如：按时起床+5分、整理玩具+10分、刷牙+3分）
-- 每个任务有：名称、图标emoji、积分值、是否每日重复
-- 儿童端：看到今日任务列表，勾选已完成的
-- 提交后状态变为"待确认"
-- 家长端：看到待确认列表，输入密码确认后积分到账
-- 积分流水记录（时间、任务名、积分变动、余额）
+## 2. 家庭系统
 
-### 3. 商店与兑换（消耗）
-- 家长创建商品（名称、图片上传、积分价格）
-- 儿童浏览商店，点击"想要"购买
-- 系统冻结积分，状态"待确认"
-- 家长输入密码确认后扣除积分，生成兑换记录
-- 兑换历史（时间、商品名、花费积分）
+### 2.1 家庭创建
+- 家长注册时自动创建家庭
+- 生成唯一邀请码（6位大写字母）
 
-### 4. 家长密码确认机制
-- 所有涉及积分变动的操作（打卡确认、购买确认）都需要家长输入独立的操作密码
-- 操作密码在注册时设置，与登录密码不同
-- 前端弹窗输入密码，后端校验
+### 2.2 成员管理
+- 孩子通过邀请码加入家庭
+- 一个家庭可有多个孩子
+- 家长可查看所有孩子信息
 
-## UI/UX 设计要求
+## 3. 任务系统
 
-### 视觉风格
-- 卡通风格，圆角设计
-- 主色调：明亮的橙色 #FF9500 + 天蓝色 #4FC3F7 + 草绿色 #66BB6A
-- 背景：浅黄色渐变 #FFF8E1 → #FFECB3
-- 大号 emoji 图标代替文字按钮
-- 卡片式布局，每张卡片有阴影和圆角
-- 字体：系统默认，大字号（标题 28px+，正文 18px+）
+### 3.1 任务类型
+- 奖励任务：完成后获得正积分
+- 减分任务：触发后扣除积分
 
-### 动画效果
-- 打卡成功：金币掉落动画 + 积分数字跳动
-- 购买成功：星星飞散效果
-- 按钮：hover 时放大 1.1 倍 + 阴影增强
-- 页面切换：淡入淡出
+### 3.2 任务属性
+- 名称
+- Emoji 图标
+- 分类（可选）
+- 积分值（正/负）
+- 重复规则
 
-### 儿童端页面
-1. **首页/今日任务** - 显示今日任务卡片列表，每个任务一个大卡片（emoji + 名称 + 积分数），点击勾选，底部"提交打卡"按钮
-2. **我的积分** - 大号显示总积分，金币动画背景，下方积分流水列表
-3. **商店** - 商品网格展示（图片 + 名称 + 积分价格），点击弹出购买确认
-4. **我的兑换** - 兑换历史列表
+### 3.3 重复规则
+- 每日：每天重复
+- 每周：选择周一到周日
+- 每月：选择几号
+- 固定日期：指定具体日期
 
-### 家长端页面
-1. **任务管理** - 任务列表 CRUD，设置名称/emoji/积分/每日重复
-2. **打卡审核** - 待确认列表，一键确认（弹密码框）
-3. **商品管理** - 商品 CRUD，上传图片，设置价格
-4. **购买审核** - 待确认购买列表，输入密码确认
-5. **数据统计** - 今日打卡数/本周打卡趋势/积分收支统计
+### 3.4 任务分配
+- 可分配给特定孩子
+- 不指定则分配给所有孩子
 
-### 通用组件
-- 底部导航栏（儿童4个tab，家长5个tab）
-- 密码确认弹窗（可爱的锁头图标，数字键盘输入）
-- Toast 通知（成功/失败）
-- 加载动画
+## 4. 打卡系统
 
-## 数据库设计
+### 4.1 孩子打卡
+- 查看今日任务列表
+- 选择任务提交打卡
+- 支持批量提交
 
-```sql
--- 家庭表
-CREATE TABLE families (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    invite_code TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 4.2 家长审核
+- 查看待审核打卡列表
+- 确认：积分自动累加
+- 拒绝：记录拒绝原因
 
--- 用户表
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    username TEXT NOT NULL,
-    password_hash TEXT NOT NULL,
-    pin_hash TEXT NOT NULL,  -- 操作密码（4-6位数字）
-    role TEXT NOT NULL CHECK(role IN ('child', 'parent')),
-    avatar_emoji TEXT DEFAULT '😊',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (family_id) REFERENCES families(id),
-    UNIQUE(family_id, username)
-);
+### 4.3 打卡状态
+- 待提交：未选择
+- 已提交：等待审核
+- 已确认：积分已发放
+- 已拒绝：打卡无效
 
--- 任务模板表
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    emoji TEXT DEFAULT '⭐',
-    points INTEGER NOT NULL,
-    is_daily BOOLEAN DEFAULT 1,
-    is_active BOOLEAN DEFAULT 1,
-    sort_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (family_id) REFERENCES families(id)
-);
+## 5. 积分系统
 
--- 打卡记录表
-CREATE TABLE checkins (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    child_id INTEGER NOT NULL,
-    task_id INTEGER NOT NULL,
-    check_date DATE NOT NULL,
-    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'rejected')),
-    points INTEGER NOT NULL,
-    confirmed_by INTEGER,
-    confirmed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (family_id) REFERENCES families(id),
-    FOREIGN KEY (child_id) REFERENCES users(id),
-    FOREIGN KEY (task_id) REFERENCES tasks(id),
-    FOREIGN KEY (confirmed_by) REFERENCES users(id)
-);
+### 5.1 积分获取
+- 完成奖励任务
+- 家长手动加分
 
--- 积分余额表
-CREATE TABLE point_balances (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    child_id INTEGER NOT NULL UNIQUE,
-    balance INTEGER DEFAULT 0,
-    total_earned INTEGER DEFAULT 0,
-    total_spent INTEGER DEFAULT 0,
-    FOREIGN KEY (family_id) REFERENCES families(id),
-    FOREIGN KEY (child_id) REFERENCES users(id)
-);
+### 5.2 积分扣除
+- 触发减分任务
+- 家长手动扣分
 
--- 积分流水表
-CREATE TABLE point_transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    child_id INTEGER NOT NULL,
-    amount INTEGER NOT NULL,  -- 正数=收入，负数=支出
-    balance_after INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('earn', 'spend', 'refund')),
-    reference_id INTEGER,  -- checkin_id 或 order_id
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (family_id) REFERENCES families(id),
-    FOREIGN KEY (child_id) REFERENCES users(id)
-);
+### 5.3 积分消费
+- 兑换商品
 
--- 商品表
-CREATE TABLE products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    image_url TEXT,
-    price INTEGER NOT NULL,
-    is_active BOOLEAN DEFAULT 1,
-    stock INTEGER DEFAULT -1,  -- -1=无限
-    sort_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (family_id) REFERENCES families(id)
-);
+### 5.4 积分流水
+- 记录所有积分变动
+- 包含时间、类型、金额、描述
 
--- 订单表
-CREATE TABLE orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id INTEGER NOT NULL,
-    child_id INTEGER NOT NULL,
-    product_id INTEGER NOT NULL,
-    points_cost INTEGER NOT NULL,
-    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'rejected', 'cancelled')),
-    confirmed_by INTEGER,
-    confirmed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (family_id) REFERENCES families(id),
-    FOREIGN KEY (child_id) REFERENCES users(id),
-    FOREIGN KEY (product_id) REFERENCES products(id),
-    FOREIGN KEY (confirmed_by) REFERENCES users(id)
-);
-```
+## 6. 商品系统
 
-## API 设计
+### 6.1 商品属性
+- 名称
+- 图片
+- 价格（积分）
+- 库存（可设为无限）
+- 分类（可选）
+- 单位和数量（可选）
 
-### 认证
-- POST /api/auth/register - 注册（username, password, pin, role, avatar_emoji, invite_code?）
-- POST /api/auth/login - 登录（username, password）→ JWT token
+### 6.2 库存管理
+- 有限库存：售罄后自动下架
+- 无限库存：始终可用
+- 单品库存：每次兑换扣减
 
-### 家庭
-- POST /api/family/create - 创建家庭（返回 invite_code）
-- POST /api/family/join - 加入家庭（invite_code）
+### 6.3 分类管理
+- 自定义分类
+- 按分类筛选商品
 
-### 任务（家长）
-- GET /api/tasks - 获取家庭任务列表
-- POST /api/tasks - 创建任务
-- PUT /api/tasks/:id - 更新任务
-- DELETE /api/tasks/:id - 删除任务
+## 7. 兑换系统
 
-### 打卡
-- GET /api/checkins/today - 获取今日打卡状态
-- POST /api/checkins/submit - 提交打卡（task_ids[]）
-- GET /api/checkins/pending - 获取待确认列表（家长）
-- POST /api/checkins/:id/confirm - 确认打卡（pin）
-- POST /api/checkins/:id/reject - 拒绝打卡（pin）
+### 7.1 孩子兑换
+- 浏览商品列表
+- 选择商品兑换
+- 积分自动扣除
 
-### 商店
-- GET /api/products - 获取商品列表
-- POST /api/products - 创建商品（家长，含图片上传）
-- PUT /api/products/:id - 更新商品
-- DELETE /api/products/:id - 删除商品
+### 7.2 订单管理
+- 待兑现：等待家长购买
+- 已兑现：商品已交付
+- 已撤回：积分退还
 
-### 购买
-- POST /api/orders/create - 发起购买（product_id）
-- GET /api/orders/pending - 获取待确认购买（家长）
-- POST /api/orders/:id/confirm - 确认购买（pin）
-- POST /api/orders/:id/reject - 拒绝购买（pin）
+### 7.3 家长操作
+- 查看兑换订单
+- 标记已兑现
+- 撤回订单（退还积分）
 
-### 积分
-- GET /api/points/balance - 获取积分余额
-- GET /api/points/transactions - 获取积分流水
+## 8. 统计系统
 
-### 统计（家长）
-- GET /api/stats/overview - 今日/本周统计
+### 8.1 积分统计
+- 当前积分
+- 累计获得
+- 累计扣除
+- 累计消费
 
-### 安全
-- 所有 API 需要 JWT token（Authorization: Bearer xxx）
-- pin 校验在后端完成，比较 bcrypt hash
-- 所有数据查询都带 family_id 过滤
+### 8.2 打卡统计
+- 今日完成数
+- 趋势图表（周/月/年）
 
-## 文件结构
-```
-kids-tasks/
-├── app.py              # Flask 主应用
-├── models.py           # SQLAlchemy 模型
-├── auth.py             # 认证逻辑
-├── requirements.txt    # Python 依赖
-├── static/
-│   ├── uploads/        # 上传的图片
-│   └── app.js          # 前端 JS（Alpine.js + 动画）
-├── templates/
-│   └── index.html      # 单页面主模板
-└── init_db.py          # 数据库初始化脚本
-```
+### 8.3 孩子排名
+- 按积分排序
+- 查看各孩子详情
 
-## 重要注意
-1. 所有前端代码写在 index.html 里（内嵌 CSS 和 JS），使用 CDN 引入 Tailwind CSS 和 Alpine.js
-2. app.js 处理路由和业务逻辑
-3. Flask 使用 jsonify 返回 JSON
-4. 图片上传存到 static/uploads/，返回可访问的 URL
-5. JWT secret key 写在配置里（简单项目不需要环境变量）
-6. 监听 0.0.0.0:8080
-7. 初始化时创建一个演示家庭（用户名 demo_child / demo_parent，密码 123456，操作密码 0000）
+## 9. 设置系统
+
+### 9.1 家庭设置
+- 查看/复制邀请码
+- 修改密码
+
+### 9.2 系统设置
+- 切换家长/孩子视图
+- 退出登录
+
+## 10. 界面设计
+
+### 10.1 设计风格
+- 卡通可爱风格
+- 橙色为主色调
+- 圆角卡片设计
+- 动画过渡效果
+
+### 10.2 响应式
+- 手机端优先
+- 平板适配
+- 桌面端居中显示
+
+### 10.3 交互设计
+- 左右滑动切换分类
+- 上下滚动查看更多
+- 点击反馈动画
+- 确认对话框
+
+## 11. 数据备份
+
+### 11.1 备份内容
+- 数据库
+- 代码文件
+- 配置文件
+- 上传图片
+
+### 11.2 备份策略
+- 每日备份
+- 保留最近 3 份
+- 自动清理旧备份
+
+## 12. 安全要求
+
+### 12.1 认证安全
+- 密码 bcrypt 加密
+- JWT Token 认证
+- Token 过期机制
+
+### 12.2 数据安全
+- SQL 注入防护
+- XSS 防护
+- 文件上传限制
+
+### 12.3 权限控制
+- 角色权限分离
+- 接口权限验证
+- 数据访问控制
