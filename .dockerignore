@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.git/
+kids_tasks.db
+*.sqlite
+*.sqlite3
+.DS_Store

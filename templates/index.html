@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#FF9500" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="打卡任务" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/icon-180.png" />
+  <title>儿童任务打卡 🌟</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css" rel="stylesheet">
+  <script defer src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            kidorange: '#FF9500',
+            kidblue: '#4FC3F7',
+            kidgreen: '#66BB6A',
+            kidyellow: '#FFC107',
+            kidpink: '#FF80AB',
+            kidpurple: '#BA68C8',
+          },
+          fontFamily: {
+            kid: ['"PingFang SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            kid: '0 8px 20px rgba(255, 149, 0, 0.18)',
+            kidsm: '0 4px 12px rgba(0, 0, 0, 0.08)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    html, body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+      background: linear-gradient(180deg, #FFF8E1 0%, #FFECB3 100%);
+      background-attachment: fixed;
+    }
+    /* iPad 宽度容器 */
+    .app-container {
+      max-width: 768px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #FFF8E1 0%, #FFECB3 100%);
+      position: relative;
+      box-shadow: 0 0 30px rgba(0,0,0,0.08);
+    }
+    body { font-size: 14px; }
+    h1, h2, h3 { font-weight: 700; }
+
+    /* 卡片基础样式 */
+    .kid-card {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .kid-card:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+
+    /* 大按钮 */
+    .kid-btn {
+      border-radius: 999px;
+      font-weight: 700;
+      transition: all .2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+transform: scale(1.04); box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+    .kid-btn:active { transform: scale(0.96); }
+
+    /* 页面切换淡入淡出 */
+    .page-fade-enter-active, .page-fade-leave-active { transition: opacity .25s; }
+    .page-fade-enter, .page-fade-leave-to { opacity: 0; }
+
+    /* 金币掉落动画 */
+    .coin {
+      position: fixed;
+      top: -50px;
+      font-size: 36px;
+      pointer-events: none;
+      z-index: 9999;
+      animation: coin-fall 1.8s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+    }
+    @keyframes coin-fall {
+      0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0.2; }
+    }
+
+    /* 数字跳动 */
+    @keyframes number-bump {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.4); color: #FF9500; }
+      100% { transform: scale(1); }
+    }
+    .bump { animation: number-bump .6s ease-in-out; }
+
+    /* 星星飞散 */
+    .star {
+      position: fixed;
+      font-size: 28px;
+      pointer-events: none;
+      z-index: 9999;
+      animation: star-fly 1.2s ease-out forwards;
+    }
+    @keyframes star-fly {
+      0%   { transform: translate(0,0) scale(0.5) rotate(0); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) scale(1.4) rotate(360deg); opacity: 0; }
+    }
+
+    /* Toast */
+    @keyframes toast-slide {
+      0%   { transform: translate(-50%, -30px); opacity: 0; }
+      10%  { transform: translate(-50%, 0); opacity: 1; }
+      90%  { transform: translate(-50%, 0); opacity: 1; }
+      100% { transform: translate(-50%, -30px); opacity: 0; }
+    }
+    .toast-anim { animation: toast-slide 2.4s ease forwards; }
+
+    /* 加载动画 */
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 4px solid #FFE0B2;
+      border-top-color: #FF9500;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 弹窗弹入 */
+    @keyframes pop-in {
+      0% { transform: scale(0.6); opacity: 0; }
+      70% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    .pop-in { animation: pop-in .35s ease-out; }
+
+    /* 任务复选框 */
+    .task-check {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid #FFD180;
+      background: white;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800;
+      transition: all .2s;
+    }
+    .task-check.checked {
+      background: #66BB6A; border-color: #66BB6A; color: white;
+      transform: scale(1.1);
+    }
+    .task-check.pending {
+      background: #FFC107; border-color: #FFC107; color: white;
+    }
+    .task-check.confirmed {
+      background: #66BB6A; border-color: #66BB6A; color: white;
+    }
+
+    /* 隐藏滚动条但保留滚动 */
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 底部导航 */
+    .nav-tab {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 6px 0; gap: 2px;
+      color: #9E9E9E; transition: color .2s;
+      cursor: pointer;
+    }
+    .nav-tab.active { color: #FF9500; }
+
+    /* 金色硬币 */
+    .gold-coin {
+      display: inline-block;
+      width: 1em; height: 1em;
+      background: linear-gradient(145deg, #FFD700, #B8860B);
+      border-radius: 50%;
+      box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.4), 0 1px 3px rgba(0,0,0,0.2);
+      position: relative;
+      vertical-align: -0.1em;
+      font-size: 0.9em;
+    }
+    .gold-coin::after {
+      content: '¢';
+      position: absolute;
+      inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #8B6914;
+      font-weight: 900;
+      font-size: 0.7em;
+      text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+    }
+
+    .nav-tab .nav-emoji { font-size: 28px; transition: transform .2s; line-height: 1; display: flex; align-items: center; justify-content: center; height: 32px; }
+    .nav-tab .nav-emoji .gold-coin { width: 24px; height: 24px; }
+    .nav-tab.active .nav-emoji { transform: scale(1.2); }
+
+    /* 周打卡柱状图 */
+    .bar {
+      width: 14px;
+      background: linear-gradient(180deg, #FFB74D 0%, #FF9500 100%);
+      border-radius: 8px 8px 0 0;
+      transition: height .5s ease;
+      min-height: 4px;
+    }
+  </style>
+</head>
+<body x-data="kidsApp()" x-init="init()" x-cloak class="font-kid text-gray-800">
+
+  <!-- ========================= 登录 / 注册 ========================= -->
+  <template x-if="!user">
+    <div class="min-h-screen flex flex-col items-center justify-center px-6 py-10 app-container">
+      <div class="text-7xl mb-3">🌟</div>
+      <h1 class="text-3xl font-extrabold text-kidorange mb-1">小任务大冒险</h1>
+      <p class="text-gray-500 mb-6">每天进步一点点，奖励等着你 🎁</p>
+
+      <div class="kid-card w-full max-w-md p-6">
+        <!-- 切换 tab -->
+        <div class="flex bg-orange-50 rounded-full p-1 mb-5">
+          <button @click="authMode='login'" :class="authMode==='login' ? 'bg-kidorange text-white shadow' : 'text-gray-500'" class="flex-1 py-2 rounded-full font-bold transition">登录</button>
+          <button @click="authMode='register'" :class="authMode==='register' ? 'bg-kidorange text-white shadow' : 'text-gray-500'" class="flex-1 py-2 rounded-full font-bold transition">注册</button>
+        </div>
+
+        <!-- 登录表单 -->
+        <div x-show="authMode==='login'" class="space-y-3">
+          <input type="text" placeholder="👤 用户名" x-model="loginForm.username" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <input type="password" placeholder="🔒 密码" x-model="loginForm.password" @keyup.enter="doLogin()" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <button @click="doLogin()" :disabled="loading" class="kid-btn w-full bg-kidorange text-white py-3 text-xl">
+            <span x-show="!loading">🚀 开始冒险</span>
+            <span x-show="loading">登录中...</span>
+          </button>
+        </div>
+
+        <!-- 注册表单 -->
+        <div x-show="authMode==='register'" class="space-y-3">
+          <!-- 角色 -->
+          <div class="flex gap-2">
+            <button @click="regForm.role='parent'; regForm.invite_code=''" :class="regForm.role==='parent' ? 'bg-kidgreen text-white' : 'bg-green-50 text-gray-600'" class="flex-1 py-3 rounded-2xl font-bold text-lg transition">👨‍👩‍👧 我是家长</button>
+            <button @click="regForm.role='child'" :class="regForm.role==='child' ? 'bg-kidblue text-white' : 'bg-blue-50 text-gray-600'" class="flex-1 py-3 rounded-2xl font-bold text-lg transition">🧒 我是小朋友</button>
+          </div>
+
+          <!-- 流程说明 -->
+          <div class="bg-blue-50 rounded-2xl p-4 text-sm leading-relaxed" x-show="regForm.role==='parent'">
+            <div class="font-bold text-kidblue mb-2">📌 家长注册流程</div>
+            <div class="space-y-1 text-gray-600">
+              <div>1️⃣ 家长先注册账号，系统自动创建家庭</div>
+              <div>2️⃣ 注册成功后会获得一个 <span class="font-bold text-kidorange">家庭邀请码</span></div>
+              <div>3️⃣ 把邀请码告诉小朋友，让 TA 注册时填入</div>
+              <div>4️⃣ 小朋友注册后自动关联到你的家庭</div>
+            </div>
+          </div>
+          <div class="bg-orange-50 rounded-2xl p-4 text-sm leading-relaxed" x-show="regForm.role==='child'">
+            <div class="font-bold text-kidorange mb-2">📌 小朋友注册流程</div>
+            <div class="space-y-1 text-gray-600">
+              <div>1️⃣ 请先让家长注册并获取 <span class="font-bold text-kidorange">家庭邀请码</span></div>
+              <div>2️⃣ 在下方填入邀请码，完成注册</div>
+              <div>3️⃣ 注册后就能看到家长布置的任务啦！</div>
+            </div>
+          </div>
+
+          <!-- 头像 emoji -->
+          <div class="bg-yellow-50 rounded-2xl p-3">
+            <div class="text-sm text-gray-500 mb-2">选个头像 👇</div>
+            <div class="flex flex-wrap gap-2">
+              <template x-for="e in ['😊','🧒','👦','👧','👶','🦁','🐰','🐯','🐼','🦄','🐶','🐱']" :key="e">
+                <button @click="regForm.avatar_emoji=e" :class="regForm.avatar_emoji===e ? 'bg-kidorange scale-110' : 'bg-white'" class="w-10 h-10 rounded-full text-2xl flex items-center justify-center transition" x-text="e"></button>
+              </template>
+            </div>
+          </div>
+
+          <input type="text" placeholder="👤 用户名" x-model="regForm.username" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <input type="password" placeholder="🔒 登录密码" x-model="regForm.password" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+
+          <!-- 邀请码：仅小朋友显示且必填 -->
+          <div x-show="regForm.role==='child'">
+            <input type="text" placeholder="📨 家庭邀请码（必填）" x-model="regForm.invite_code" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg uppercase" required />
+            <div class="text-xs text-gray-400 mt-1 ml-2">向家长索取邀请码后再注册哦~</div>
+          </div>
+
+          <button @click="doRegister()" :disabled="loading" class="kid-btn w-full bg-kidgreen text-white py-3 text-xl">
+            <span x-show="!loading">✨ 创建账号</span>
+            <span x-show="loading">注册中...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ========================= 主界面 ========================= -->
+  <template x-if="user">
+    <div class="min-h-screen pb-16 app-container">
+      <!-- 顶部栏 -->
+      <header class="sticky top-0 z-30 bg-gradient-to-r from-kidorange to-kidyellow text-white px-4 py-1.5 shadow-md flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-full bg-white/30 flex items-center justify-center text-xl" x-text="user.avatar_emoji"></div>
+          <div>
+            <div class="font-extrabold text-lg leading-tight" x-text="user.username"></div>
+            <div class="text-xs opacity-90" x-text="user.role==='child' ? '小朋友' : (viewMode==='child' ? '查看中' : '家长')"></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- 家长端视图切换器 -->
+          <template x-if="user.role==='parent' && children.length > 1">
+            <button @click="toggleViewMode()"
+                    class="bg-white text-kidorange px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition shadow-sm hover:shadow-md">
+              <span x-text="viewMode==='parent' ? '👨‍👩‍👧 切换' : viewAsChildId ? children.find(k=>k.id===viewAsChildId)?.avatar_emoji + ' 儿童端' : '👨‍👩‍👧 切换'"></span>
+            </button>
+          </template>
+          <template x-if="user.role==='parent' && children.length === 1">
+            <button @click="toggleViewMode()"
+                    class="bg-white text-kidorange px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition shadow-sm hover:shadow-md">
+              <span x-text="viewMode==='parent' ? children[0].avatar_emoji + ' 儿童端' : '👨‍👩‍👧 家长端'"></span>
+            </button>
+          </template>
+          <button @click="showSettings=true" class="bg-white/25 hover:bg-white/35 w-10 h-10 rounded-full text-xl">⚙️</button>
+          <button @click="logout()" class="bg-white/25 hover:bg-white/35 w-10 h-10 rounded-full text-xl">🚪</button>
+        </div>
+      </header>
+
+      <!-- 主内容 -->
+      <main class="px-4 py-4">
+
+        <!-- ============== 儿童端：今日任务 ============== -->
+        <div x-show="(user.role==='child' || viewMode==='child') && currentTab==='today'" x-transition.opacity>
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-xl font-extrabold text-kidorange">📋 今日任务</h2>
+            <template x-if="(user.role==='child' || (user.role==='parent' && viewMode==='child')) && pointsBalance !== null">
+              <span class="bg-kidorange/10 px-3 py-1 rounded-full text-base font-extrabold text-kidorange flex items-center gap-1">
+                <i class="gold-coin"></i><span :class="{'bump': balanceBumpKey>0}" :key="balanceBumpKey" x-text="pointsBalance + '分'"></span>
+              </span>
+            </template>
+          </div>
+          <p class="text-gray-400 text-xs mb-2">完成任务获得积分 💪</p>
+
+          <!-- 任务分类筛选 -->
+          <template x-if="getTaskCategories().length > 0">
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-2 no-scrollbar">
+              <button @click="activeTaskCategory = ''"
+                      :class="activeTaskCategory === '' ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                      class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full">全部</button>
+              <template x-for="cat in getTaskCategories()" :key="'tc-'+cat">
+                <button @click="activeTaskCategory = cat"
+                        :class="activeTaskCategory === cat ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                        class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full" x-text="cat"></button>
+              </template>
+            </div>
+          </template>
+
+          <div x-show="filteredTodayTasks().length===0" class="kid-card p-8 text-center text-gray-400">
+            <div class="text-3xl mb-2">📭</div>
+            <div x-text="activeTaskCategory ? '该分类下没有任务' : '家长还没添加任务哦'"></div>
+          </div>
+
+          <!-- 加分任务 -->
+          <template x-if="rewardTasks(filteredTodayTasks()).length > 0">
+            <div>
+              <div class="text-xs font-bold text-kidgreen mb-1 mt-1">🌟 加分任务</div>
+              <div class="space-y-1.5">
+                <template x-for="t in rewardTasks(filteredTodayTasks())" :key="t.id">
+                  <div class="kid-card px-2.5 py-1.5 flex items-center gap-2 cursor-pointer"
+                       :class="{'opacity-60': t.checkin_status==='confirmed'}"
+                       @click="toggleTaskCheck(t)">
+                    <div class="text-2xl" x-text="t.emoji"></div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-bold text-sm truncate" x-text="t.name"></div>
+                    </div>
+                    <div class="text-kidorange text-xs font-bold flex items-center gap-0.5 shrink-0 w-14 justify-end">
+                      <i class="gold-coin"></i><span x-text="'+' + t.points + '分'"></span>
+                    </div>
+                    <template x-if="t.checkin_status==='confirmed'">
+                      <div class="task-check confirmed">✓</div>
+                    </template>
+                    <template x-if="t.checkin_status==='pending'">
+                      <div class="task-check pending">⏳</div>
+                    </template>
+                    <template x-if="t.checkin_status==='rejected'">
+                      <div class="task-check" :class="{'checked': selectedTaskIds.includes(t.id)}" style="border-color:#FF9800">
+                        <span x-show="selectedTaskIds.includes(t.id)">✓</span>
+                        <span x-show="!selectedTaskIds.includes(t.id)" style="color:#FF9800;font-size:10px">!</span>
+                      </div>
+                    </template>
+                    <template x-if="!t.checkin_status">
+                      <div class="task-check" :class="{'checked': selectedTaskIds.includes(t.id)}">
+                        <span x-show="selectedTaskIds.includes(t.id)">✓</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- 减分任务 -->
+          <template x-if="penaltyTasks(filteredTodayTasks()).length > 0">
+            <div>
+              <div class="text-xs font-bold text-red-400 mb-1 mt-2">⚠️ 减分任务</div>
+              <div class="space-y-1.5">
+                <template x-for="t in penaltyTasks(filteredTodayTasks())" :key="t.id">
+                  <div class="kid-card px-2.5 py-1.5 flex items-center gap-2 cursor-pointer"
+                       :class="{'opacity-60': t.checkin_status==='confirmed'}"
+                       @click="toggleTaskCheck(t)">
+                    <div class="text-2xl" x-text="t.emoji"></div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-bold text-sm truncate" x-text="t.name"></div>
+                    </div>
+                    <div class="text-red-400 text-xs font-bold flex items-center gap-0.5 shrink-0 w-14 justify-end">
+                      <i class="gold-coin"></i><span x-text="t.points + '分'"></span>
+                    </div>
+                    <template x-if="t.checkin_status==='confirmed'">
+                      <div class="task-check confirmed">✓</div>
+                    </template>
+                    <template x-if="t.checkin_status==='pending'">
+                      <div class="task-check pending">⏳</div>
+                    </template>
+                    <template x-if="t.checkin_status==='rejected'">
+                      <div class="task-check" :class="{'checked': selectedTaskIds.includes(t.id)}" style="border-color:#FF9800">
+                        <span x-show="selectedTaskIds.includes(t.id)">✓</span>
+                        <span x-show="!selectedTaskIds.includes(t.id)" style="color:#FF9800;font-size:10px">!</span>
+                      </div>
+                    </template>
+                    <template x-if="!t.checkin_status">
+                      <div class="task-check" :class="{'checked': selectedTaskIds.includes(t.id)}">
+                        <span x-show="selectedTaskIds.includes(t.id)">✓</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <div class="mt-3" x-show="todayTasks.some(t=>!t.checkin_status)">
+            <button @click="submitCheckins()" :disabled="selectedTaskIds.length===0 || loading" class="kid-btn w-full bg-kidgreen text-white py-2.5 text-base"
+                    :class="{'opacity-50 cursor-not-allowed': selectedTaskIds.length===0}">
+              🎉 提交打卡 (<span x-text="selectedTaskIds.length"></span>)
+            </button>
+          </div>
+        </div>
+
+        <!-- ============== 儿童端：我的积分 ============== -->
+        <div x-show="(user.role==='child' || viewMode==='child') && currentTab==='points'" x-transition.opacity>
+          <h2 class="text-xl font-extrabold mb-3 text-kidorange"><i class="gold-coin"></i> 我的积分</h2>
+          <div class="kid-card p-3 mb-3 text-center bg-gradient-to-br from-yellow-100 to-orange-200">
+            <div>
+              <div class="text-gray-600">当前积分</div>
+              <div class="text-7xl font-extrabold text-kidorange my-2" :class="{'bump': balanceBumpKey>0}" :key="balanceBumpKey" x-text="pointsBalance ?? 0"></div>
+              <div class="flex justify-around mt-2 text-xs">
+                <div>
+                  <div class="text-gray-500">累计获得</div>
+                  <div class="font-bold text-kidgreen text-xl" x-text="pointsStats.total_earned ?? 0"></div>
+                </div>
+                <div>
+                  <div class="text-gray-500">累计扣除</div>
+                  <div class="font-bold text-red-500 text-xl" x-text="pointsStats.total_deducted ?? 0"></div>
+                </div>
+                <div>
+                  <div class="text-gray-500">累计消费</div>
+                  <div class="font-bold text-kidpink text-xl" x-text="pointsStats.total_spent ?? 0"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="text-sm font-bold mb-1.5">📜 积分流水</h3>
+          <div class="space-y-2">
+            <template x-for="tx in transactions" :key="tx.id">
+              <div class="kid-card p-3 flex items-center gap-3">
+                <div class="text-xl" x-text="tx.type==='earn' ? '🟢' : (tx.type==='spend' ? '🔴' : '🔄')"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-bold truncate" x-text="tx.description"></div>
+                  <div class="text-xs text-gray-400" x-text="fmtTime(tx.created_at)"></div>
+                </div>
+                <div class="font-extrabold text-xl" :class="tx.amount>0 ? 'text-kidgreen' : 'text-kidpink'">
+                  <span x-text="(tx.amount>0?'+':'') + tx.amount"></span>
+                </div>
+              </div>
+            </template>
+            <div x-show="transactions.length===0" class="text-center text-gray-400 py-8">还没有流水记录哦</div>
+          </div>
+        </div>
+
+        <!-- ============== 儿童端：商店 ============== -->
+        <div x-show="(user.role==='child' || viewMode==='child') && currentTab==='shop'" x-transition.opacity>
+          <div class="flex items-baseline justify-between mb-3">
+            <h2 class="text-xl font-extrabold text-kidorange">🛍️ 奖励商店</h2>
+            <span class="text-xs text-gray-400">用你的积分换取心仪的奖励吧 ✨</span>
+          </div>
+
+          <!-- 分类筛选 -->
+          <template x-if="getCategories().length > 0">
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-3 no-scrollbar">
+              <button @click="activeCategory = ''"
+                      :class="activeCategory === '' ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                      class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full">全部</button>
+              <template x-for="cat in getCategories()" :key="cat">
+                <button @click="activeCategory = cat"
+                        :class="activeCategory === cat ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                        class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full" x-text="cat"></button>
+              </template>
+            </div>
+          </template>
+
+          <!-- 在售商品 -->
+          <div class="grid grid-cols-2 gap-2">
+            <template x-for="p in filteredProducts().filter(p => p.stock !== 0)" :key="p.id">
+              <div class="kid-card p-3 flex flex-col">
+                <div class="aspect-square w-full rounded-lg overflow-hidden bg-orange-50 mb-1.5 flex items-center justify-center">
+                  <template x-if="p.image_url">
+                    <img :src="p.image_url" :alt="p.name" class="w-full h-full object-cover" @click="previewImage(p.image_url)" />
+                  </template>
+                  <template x-if="!p.image_url">
+                    <div class="text-4xl">🎁</div>
+                  </template>
+                </div>
+                <div class="font-bold text-sm truncate" x-text="p.name"></div>
+                <div class="flex items-center justify-between mt-1">
+                  <div class="flex items-center gap-1.5">
+                    <div class="text-kidorange font-extrabold text-sm"><i class="gold-coin"></i> <span x-text="p.price"></span></div>
+                    <span x-show="p.stock > 0" class="text-gray-400 text-xs">库存 <span x-text="p.stock"></span></span>
+                    <span x-show="p.stock < 0" class="text-gray-400 text-xs">无限</span>
+                  </div>
+                  <span x-show="p.unit" class="text-gray-400 text-xs">每次 <span x-text="p.quantity || 1"></span><span x-text="p.unit"></span></span>
+                </div>
+                <button @click="buyProduct(p, $event)" :disabled="pointsBalance < p.price"
+                        :class="pointsBalance < p.price ? 'bg-gray-300 text-gray-500' : 'bg-kidblue text-white'"
+                        class="kid-btn w-full py-1.5 text-xs mt-1.5">想要</button>
+              </div>
+            </template>
+            <div x-show="filteredProducts().filter(p => p.stock !== 0).length===0" class="col-span-2 text-center text-gray-400 py-8">商店还没有上新哦</div>
+          </div>
+
+          <!-- 售罄商品 -->
+          <template x-if="filteredProducts().some(p => p.stock === 0)">
+            <div class="mt-6">
+              <div class="font-bold text-lg text-gray-400 mb-3">售罄</div>
+              <div class="grid grid-cols-2 gap-2">
+                <template x-for="p in filteredProducts().filter(p => p.stock === 0)" :key="'sold-'+p.id">
+                  <div class="kid-card p-3 flex flex-col opacity-50 grayscale">
+                    <div class="aspect-square w-full rounded-xl overflow-hidden bg-orange-50 mb-2 flex items-center justify-center">
+                      <template x-if="p.image_url">
+                        <img :src="p.image_url" :alt="p.name" class="w-full h-full object-cover" @click="previewImage(p.image_url)" />
+                      </template>
+                      <template x-if="!p.image_url">
+                        <div class="text-6xl">🎁</div>
+                      </template>
+                    </div>
+                    <div class="font-bold text-sm truncate" x-text="p.name"></div>
+                    <div class="flex items-center justify-between mt-1">
+                      <div class="text-kidorange font-extrabold text-sm"><i class="gold-coin"></i> <span x-text="p.price"></span></div>
+                      <span class="text-xs text-gray-400 font-bold">售罄</span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- ============== 儿童端：我的兑换 ============== -->
+        <div x-show="(user.role==='child' || viewMode==='child') && currentTab==='orders'" x-transition.opacity>
+          <h2 class="text-xl font-extrabold mb-3 text-kidorange">🎁 我的兑换</h2>
+          <div class="space-y-2">
+            <template x-for="o in orders" :key="o.id">
+              <div class="kid-card p-2 flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg overflow-hidden bg-orange-50 flex-shrink-0 flex items-center justify-center">
+                  <template x-if="o.product_image">
+                    <img :src="o.product_image" class="w-full h-full object-cover" />
+                  </template>
+                  <template x-if="!o.product_image"><div class="text-3xl">🎁</div></template>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-bold truncate" x-text="o.product_name"></div>
+                  <div class="text-xs text-gray-400" x-text="fmtTime(o.created_at)"></div>
+                </div>
+                <div class="text-right">
+                  <div class="font-extrabold text-kidorange"><i class="gold-coin"></i> <span x-text="o.points_cost"></span></div>
+                  <div class="text-xs font-bold"
+                       :class="o.status==='confirmed' ? 'text-kidgreen' : (o.status==='pending' ? 'text-kidyellow' : 'text-red-400')"
+                       x-text="statusText(o.status)"></div>
+                  <button x-show="o.status==='confirmed' && !o.purchased" @click="cancelOrder(o)"
+                          class="kid-btn bg-red-400 text-white px-2 py-0.5 text-xs mt-1">撤回</button>
+                </div>
+              </div>
+            </template>
+            <div x-show="orders.length===0" class="text-center text-gray-400 py-8">还没有兑换记录哦</div>
+          </div>
+        </div>
+
+        <!-- ============== 家长端：任务管理 ============== -->
+        <div x-show="user.role==='parent' && viewMode==='parent' && currentTab==='ptasks'" x-transition.opacity>
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-xl font-extrabold text-kidorange">📋 任务管理</h2>
+            <div class="flex items-center gap-2">
+              <button @click="sortMode=!sortMode" :class="sortMode ? 'bg-kidorange text-white' : 'bg-orange-100 text-gray-600'" class="kid-btn px-3 py-1.5 text-sm">↕️ 排序</button>
+              <button @click="openTaskForm()" class="kid-btn bg-kidgreen text-white px-3 py-1.5 text-sm">➕ 新任务</button>
+            </div>
+          </div>
+
+          <!-- 任务分类筛选 -->
+          <template x-if="getTaskCategories().length > 0">
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-3 no-scrollbar">
+              <button @click="activeTaskCategory = ''"
+                      :class="activeTaskCategory === '' ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                      class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full">全部</button>
+              <template x-for="cat in getTaskCategories()" :key="'tc-'+cat">
+                <button @click="activeTaskCategory = cat"
+                        :class="activeTaskCategory === cat ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                        class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full" x-text="cat"></button>
+              </template>
+            </div>
+          </template>
+
+          <div class="mb-3" x-show="rewardTasks(filteredAllTasks()).length">
+            <div class="font-bold text-sm mb-1.5">🏆 奖励任务</div>
+            <div class="space-y-1.5">
+              <template x-for="(t, idx) in rewardTasks(filteredAllTasks())" :key="'r-'+t.id">
+                <div class="kid-card p-2 flex items-center gap-2 task-drag-item" :data-task-id="t.id">
+                  <div x-show="sortMode" class="flex flex-col gap-0.5">
+                    <button @click="moveTaskToEdge(t.id, 'top')" :disabled="idx===0" :class="idx===0 ? 'opacity-30' : ''" class="kid-btn bg-gray-200 text-gray-600 w-7 h-5 text-xs flex items-center justify-center">⤒</button>
+                    <button @click="moveTaskToEdge(t.id, 'bottom')" :disabled="idx===rewardTasks(filteredAllTasks()).length-1" :class="idx===rewardTasks(filteredAllTasks()).length-1 ? 'opacity-30' : ''" class="kid-btn bg-gray-200 text-gray-600 w-7 h-5 text-xs flex items-center justify-center">⤓</button>
+                  </div>
+                  <div class="text-2xl" x-text="t.emoji"></div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-extrabold text-sm" x-text="t.name"></div>
+                    <div class="text-xs text-gray-500 flex items-center gap-2">
+                      <span class="text-kidorange font-bold">
+                        <span>+</span><span x-text="t.points"></span>分
+                      </span>
+                      <span class="text-gray-400" x-text="repeatLabel(t)"></span>
+                      <span x-show="t.category" class="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full text-xs" x-text="t.category"></span>
+                    </div>
+                  </div>
+                  <template x-if="!sortMode">
+                    <div class="flex gap-1">
+                      <button @click="openTaskForm(t)" class="kid-btn bg-kidblue text-white w-8 h-8 text-xs">✏️</button>
+                      <button @click="deleteTask(t)" class="kid-btn bg-red-400 text-white w-8 h-8 text-xs">🗑️</button>
+                    </div>
+                  </template>
+                  <template x-if="sortMode">
+                    <div class="flex gap-1.5 flex-1 justify-end">
+                      <button @click="moveTask(t.id, 'up')" :disabled="idx===0" :class="idx===0 ? 'opacity-30 bg-gray-100' : 'bg-kidblue'" class="kid-btn text-white px-3 py-1.5 text-xs font-bold">上移</button>
+                      <button @click="moveTask(t.id, 'down')" :disabled="idx===rewardTasks(filteredAllTasks()).length-1" :class="idx===rewardTasks(filteredAllTasks()).length-1 ? 'opacity-30 bg-gray-100' : 'bg-kidblue'" class="kid-btn text-white px-3 py-1.5 text-xs font-bold">下移</button>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div x-show="penaltyTasks(filteredAllTasks()).length">
+            <div class="font-bold text-sm mb-1.5 text-red-500">🧨 减分任务</div>
+            <div class="space-y-1.5">
+              <template x-for="(t, idx) in penaltyTasks(filteredAllTasks())" :key="'p-'+t.id">
+                <div class="kid-card p-2 flex items-center gap-2 task-drag-item" :data-task-id="t.id">
+                  <div x-show="sortMode" class="flex flex-col gap-0.5">
+                    <button @click="moveTaskToEdge(t.id, 'top')" :disabled="idx===0" :class="idx===0 ? 'opacity-30' : ''" class="kid-btn bg-gray-200 text-gray-600 w-7 h-5 text-xs flex items-center justify-center">⤒</button>
+                    <button @click="moveTaskToEdge(t.id, 'bottom')" :disabled="idx===penaltyTasks(filteredAllTasks()).length-1" :class="idx===penaltyTasks(filteredAllTasks()).length-1 ? 'opacity-30' : ''" class="kid-btn bg-gray-200 text-gray-600 w-7 h-5 text-xs flex items-center justify-center">⤓</button>
+                  </div>
+                  <div class="text-2xl" x-text="t.emoji"></div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-extrabold text-sm" x-text="t.name"></div>
+                    <div class="text-xs text-gray-500 flex items-center gap-2">
+                      <span class="text-red-500 font-bold">
+                        <span>-</span><span x-text="Math.abs(t.points)"></span>分
+                      </span>
+                      <span class="text-gray-400" x-text="repeatLabel(t)"></span>
+                      <span x-show="t.category" class="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full text-xs" x-text="t.category"></span>
+                      <span class="bg-red-100 text-red-500 px-2 py-0.5 rounded-full text-xs font-bold">减分任务</span>
+                    </div>
+                  </div>
+                  <template x-if="!sortMode">
+                    <div class="flex gap-1">
+                      <button @click="openTaskForm(t)" class="kid-btn bg-kidblue text-white w-8 h-8 text-xs">✏️</button>
+                      <button @click="deleteTask(t)" class="kid-btn bg-red-400 text-white w-8 h-8 text-xs">🗑️</button>
+                    </div>
+                  </template>
+                  <template x-if="sortMode">
+                    <div class="flex gap-1.5 flex-1 justify-end">
+                      <button @click="moveTask(t.id, 'up')" :disabled="idx===0" :class="idx===0 ? 'opacity-30 bg-gray-100' : 'bg-kidblue'" class="kid-btn text-white px-3 py-1.5 text-xs font-bold">上移</button>
+                      <button @click="moveTask(t.id, 'down')" :disabled="idx===penaltyTasks(filteredAllTasks()).length-1" :class="idx===penaltyTasks(filteredAllTasks()).length-1 ? 'opacity-30 bg-gray-100' : 'bg-kidblue'" class="kid-btn text-white px-3 py-1.5 text-xs font-bold">下移</button>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div x-show="filteredAllTasks().length===0" class="text-center text-gray-400 py-5 text-sm" x-text="activeTaskCategory ? '该分类下没有任务' : '还没有任务，赶紧添加一个吧'"></div>
+        </div>
+
+        <!-- ============== 家长端：打卡审核 ============== -->
+        <div x-show="user.role==='parent' && viewMode==='parent' && currentTab==='approve'" x-transition.opacity>
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <h2 class="text-xl font-extrabold text-kidorange">✅ 审核</h2>
+            <button @click="resetTodayCheckins()" class="kid-btn bg-kidblue text-white px-3 py-1.5 text-xs whitespace-nowrap">🔄 重置任务</button>
+          </div>
+
+          <!-- 打卡审核 -->
+          <div class="mb-4">
+            <div class="font-bold text-sm mb-1.5">📋 打卡审核</div>
+
+            <!-- 加分打卡 -->
+            <template x-if="rewardCheckins(pendingCheckins).length > 0">
+              <div>
+                <div class="text-xs font-bold text-kidgreen mb-1">🌟 加分打卡</div>
+                <div class="space-y-1.5">
+                  <template x-for="c in rewardCheckins(pendingCheckins)" :key="c.id">
+                    <div class="kid-card p-2 flex items-center gap-2">
+                      <div class="text-2xl" x-text="c.task_emoji"></div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-sm" x-text="c.task_name"></div>
+                        <div class="text-xs text-gray-500">
+                          <span x-text="c.child_avatar + ' ' + c.child_name"></span>
+                          · <span class="text-kidorange font-bold">+<span x-text="c.points"></span>分</span>
+                        </div>
+                      </div>
+                      <button @click="confirmCheckin(c)" class="kid-btn bg-kidgreen text-white px-3 py-2">✓ 确认</button>
+                      <button @click="rejectCheckin(c)" class="kid-btn bg-red-400 text-white px-3 py-2">✗</button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- 减分打卡 -->
+            <template x-if="penaltyCheckins(pendingCheckins).length > 0">
+              <div>
+                <div class="text-xs font-bold text-red-400 mb-1 mt-3">⚠️ 减分打卡</div>
+                <div class="space-y-1.5">
+                  <template x-for="c in penaltyCheckins(pendingCheckins)" :key="c.id">
+                    <div class="kid-card p-2 flex items-center gap-2">
+                      <div class="text-2xl" x-text="c.task_emoji"></div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-sm" x-text="c.task_name"></div>
+                        <div class="text-xs text-gray-500">
+                          <span x-text="c.child_avatar + ' ' + c.child_name"></span>
+                          · <span class="text-red-400 font-bold"><span x-text="c.points"></span>分</span>
+                        </div>
+                      </div>
+                      <button @click="confirmCheckin(c)" class="kid-btn bg-kidgreen text-white px-3 py-2">✓ 确认</button>
+                      <button @click="rejectCheckin(c)" class="kid-btn bg-red-400 text-white px-3 py-2">✗</button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <div x-show="pendingCheckins.length===0" class="text-center text-gray-400 py-8">
+              <div class="text-3xl mb-2">🎉</div>
+              <div>暂无待审核打卡</div>
+            </div>
+          </div>
+
+          <!-- 所有减分任务 —— 家长可主动点击扣分（默认折叠） -->
+          <div class="mt-4">
+            <div class="flex items-center gap-2 mb-1.5 cursor-pointer select-none" @click="penaltyFolded = !penaltyFolded">
+              <span class="text-xs transition-transform duration-200" :class="penaltyFolded ? '' : 'rotate-90'" style="display:inline-block">▶</span>
+              <span class="font-bold text-sm text-red-500">🧨 减分任务</span>
+              <span class="text-xs text-gray-400" x-text="'(' + penaltyTasks(allTasks).length + ')'"></span>
+            </div>
+            <div x-show="!penaltyFolded" x-transition.duration.200ms>
+              <div class="text-xs text-gray-500 mb-1.5" x-show="familyMembers.filter(m => m.role==='child').length > 1">👇 点击孩子头像直接扣分</div>
+              <div class="space-y-1.5">
+                <template x-for="t in penaltyTasks(allTasks)" :key="'apt-'+t.id">
+                  <div class="kid-card p-2">
+                    <div class="flex items-center gap-2" :class="{'mb-2': familyMembers.filter(m => m.role==='child').length > 1}">
+                      <div class="text-2xl" x-text="t.emoji"></div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-sm" x-text="t.name"></div>
+                        <div class="text-red-500 font-bold text-xs">-<span x-text="Math.abs(t.points)"></span>分 · <span x-text="repeatLabel(t)"></span></div>
+                      </div>
+                      <template x-if="familyMembers.filter(m => m.role==='child').length === 1">
+                        <button @click="applyPenalty(t, familyMembers.filter(m => m.role==='child')[0])"
+                                class="kid-btn bg-red-500 text-white px-2.5 py-1 text-xs">✗ 扣分</button>
+                      </template>
+                    </div>
+                    <div x-show="familyMembers.filter(m => m.role==='child').length > 1" class="flex flex-wrap gap-2">
+                      <template x-for="m in familyMembers.filter(m => m.role==='child')" :key="'apc-'+t.id+'-'+m.id">
+                        <button @click="applyPenalty(t, m)"
+                                class="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition active:scale-95">
+                          <span x-text="m.avatar_emoji"></span>
+                          <span x-text="m.username"></span>
+                          <span class="text-red-400">-<span x-text="Math.abs(t.points)"></span></span>
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                <div x-show="penaltyTasks(allTasks).length===0" class="text-center text-gray-400 py-4">
+                  还没有减分任务
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 已兑换商品 -->
+          <div>
+            <div class="font-bold text-sm mb-1.5">🎁 已兑换商品</div>
+            <div class="space-y-3">
+              <template x-for="o in confirmedOrders" :key="o.id">
+                <div>
+                  <div class="kid-card p-3 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg overflow-hidden bg-orange-50 flex-shrink-0 flex items-center justify-center">
+                      <template x-if="o.product_image"><img :src="o.product_image" class="w-full h-full object-cover" /></template>
+                      <template x-if="!o.product_image"><div class="text-3xl">🎁</div></template>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-extrabold" x-text="o.product_name"></div>
+                      <div class="text-sm text-gray-500">
+                        <span x-text="o.child_avatar + ' ' + o.child_name"></span>
+                        · <span class="text-kidorange font-bold"><i class="gold-coin"></i><span x-text="o.points_cost"></span></span>
+                      </div>
+                      <div class="text-xs text-gray-400" x-text="fmtTime(o.created_at)"></div>
+                    </div>
+                    <button @click="markPurchased(o)" 
+                            :class="o.purchased ? 'bg-gray-300 text-gray-500 cursor-default' : 'bg-kidgreen text-white'"
+                            :disabled="o.purchased"
+                            class="kid-btn px-3 py-2"
+                            x-text="o.purchased ? '✅' : '已兑现'"></button>
+                    <button @click="openTB(o.product_name)" class="kid-btn bg-kidblue text-white px-3 py-2">🔍</button>
+                    <button x-show="!o.purchased" @click="cancelOrder(o)" class="kid-btn bg-red-400 text-white px-2.5 py-2 text-xs">撤回</button>
+                </div>
+              </template>
+              <div x-show="confirmedOrders.length===0" class="text-center text-gray-400 py-4">
+                <div>暂无兑换记录</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============== 家长端：商品管理 ============== -->
+        <div x-show="user.role==='parent' && viewMode==='parent' && currentTab==='pproducts'" x-transition.opacity>
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-xl font-extrabold text-kidorange">🛍️ 商品管理</h2>
+            <button @click="openProductForm()" class="kid-btn bg-kidgreen text-white px-3 py-1.5 text-sm">➕ 新商品</button>
+          </div>
+
+          <!-- 分类筛选 -->
+          <template x-if="getCategories().length > 0">
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-3 no-scrollbar">
+              <button @click="activeCategory = ''"
+                      :class="activeCategory === '' ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                      class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full">全部</button>
+              <template x-for="cat in getCategories()" :key="cat">
+                <button @click="activeCategory = cat"
+                        :class="activeCategory === cat ? 'bg-kidorange text-white' : 'bg-gray-100 text-gray-600'"
+                        class="kid-btn px-3 py-1 text-xs whitespace-nowrap rounded-full" x-text="cat"></button>
+              </template>
+            </div>
+          </template>
+
+          <!-- 在售商品 -->
+          <div class="grid grid-cols-2 gap-2">
+            <template x-for="p in filteredProducts().filter(p => p.stock !== 0)" :key="p.id">
+              <div class="kid-card p-2 flex flex-col" style="position:relative;">
+                <div class="aspect-square w-full rounded-lg overflow-hidden bg-orange-50 mb-1.5 flex items-center justify-center cursor-pointer" @click="p.image_url && previewImage(p.image_url)">
+                  <template x-if="p.image_url">
+                    <img :src="p.image_url" class="w-full h-full object-cover" />
+                  </template>
+                  <template x-if="!p.image_url"><div class="text-4xl">🎁</div></template>
+                </div>
+                <div class="font-bold text-sm truncate" x-text="p.name"></div>
+                <div class="flex items-center justify-between mt-1">
+                  <div class="flex items-center gap-1.5">
+                    <div class="text-kidorange font-extrabold text-sm"><i class="gold-coin"></i> <span x-text="p.price"></span></div>
+                    <span x-show="p.stock > 0" class="text-gray-400 text-xs">库存 <span x-text="p.stock"></span></span>
+                    <span x-show="p.stock < 0" class="text-gray-400 text-xs">无限</span>
+                  </div>
+                  <span x-show="p.unit" class="text-gray-400 text-xs">每次 <span x-text="p.quantity || 1"></span><span x-text="p.unit"></span></span>
+                </div>
+                <div class="flex gap-1.5 mt-auto">
+                  <button @click="openProductForm(p)" class="kid-btn bg-kidblue text-white flex-1 py-1 text-xs">编辑</button>
+                  <button @click="deleteProduct(p)" class="kid-btn bg-red-400 text-white px-2 py-1 text-xs">🗑️</button>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- 售罄商品 -->
+          <template x-if="filteredProducts().some(p => p.stock === 0)">
+            <div class="mt-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="font-bold text-sm text-gray-400">📦 售罄管理 <span class="text-xs" x-text="'(' + filteredProducts().filter(p => p.stock === 0).length + ')'"></span></div>
+                <button @click="clearSoldoutForm.open=true" class="kid-btn bg-red-400 text-white px-2 py-1 text-xs">🗑️ 清除全部</button>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <template x-for="p in filteredProducts().filter(p => p.stock === 0)" :key="'sold-'+p.id">
+                  <div class="kid-card p-2 flex flex-col opacity-60 grayscale" style="position:relative;">
+                    <div class="aspect-square w-full rounded-lg overflow-hidden bg-orange-50 mb-1.5 flex items-center justify-center cursor-pointer" @click="p.image_url && previewImage(p.image_url)">
+                      <template x-if="p.image_url">
+                        <img :src="p.image_url" class="w-full h-full object-cover" />
+                      </template>
+                      <template x-if="!p.image_url"><div class="text-4xl">🎁</div></template>
+                    </div>
+                    <div class="font-bold text-sm truncate" x-text="p.name"></div>
+                    <div class="flex items-center justify-between mt-1">
+                      <div class="text-kidorange font-extrabold text-sm"><i class="gold-coin"></i> <span x-text="p.price"></span></div>
+                      <span class="text-xs text-gray-400 font-bold">售罄</span>
+                    </div>
+                    <div class="flex gap-1.5 mt-auto">
+                      <button @click="openProductForm(p)" class="kid-btn bg-kidblue text-white flex-1 py-1 text-xs">编辑</button>
+                      <button @click="deleteProduct(p)" class="kid-btn bg-red-400 text-white px-2 py-1 text-xs">🗑️</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- ============== 家长端：数据统计 ============== -->
+        <div x-show="user.role==='parent' && viewMode==='parent' && currentTab==='stats'" x-transition.opacity>
+          <h2 class="text-xl font-extrabold mb-3 text-kidorange">📊 数据统计</h2>
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <div class="kid-card p-3 text-center bg-gradient-to-br from-green-100 to-green-200">
+              <div class="text-2xl">✅</div>
+              <div class="text-2xl font-extrabold text-kidgreen" x-text="stats.today_confirmed ?? 0"></div>
+              <div class="text-sm text-gray-600">今日完成打卡</div>
+            </div>
+            <div class="kid-card p-3 text-center bg-gradient-to-br from-red-100 to-red-200">
+              <div class="text-2xl">🧨</div>
+              <div class="text-2xl font-extrabold text-red-500" x-text="stats.total_deducted ?? 0"></div>
+              <div class="text-sm text-gray-600">累计扣除积分</div>
+            </div>
+            <div class="kid-card p-3 text-center bg-gradient-to-br from-orange-100 to-orange-200">
+              <div class="text-2xl gold-coin"></div>
+              <div class="text-2xl font-extrabold text-kidorange" x-text="stats.total_earned ?? 0"></div>
+              <div class="text-sm text-gray-600">累计获得积分</div>
+            </div>
+            <div class="kid-card p-3 text-center bg-gradient-to-br from-pink-100 to-pink-200">
+              <div class="text-2xl">💸</div>
+              <div class="text-2xl font-extrabold text-kidpink" x-text="stats.total_spent ?? 0"></div>
+              <div class="text-sm text-gray-600">累计消费积分</div>
+            </div>
+          </div>
+
+          <div class="kid-card p-4 mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <div class="font-bold text-sm">📈 积分趋势（净获得）</div>
+              <div class="flex gap-1">
+                <button @click="switchTrendRange('week')" :class="trendRange==='week' ? 'bg-kidorange text-white' : 'bg-orange-100 text-gray-600'" class="px-2.5 py-1 rounded-full text-xs font-bold transition">周</button>
+                <button @click="switchTrendRange('month')" :class="trendRange==='month' ? 'bg-kidorange text-white' : 'bg-orange-100 text-gray-600'" class="px-2.5 py-1 rounded-full text-xs font-bold transition">月</button>
+                <button @click="switchTrendRange('year')" :class="trendRange==='year' ? 'bg-kidorange text-white' : 'bg-orange-100 text-gray-600'" class="px-2.5 py-1 rounded-full text-xs font-bold transition">年</button>
+              </div>
+            </div>
+            <div class="flex items-end no-scrollbar" :class="trendRange==='month' ? 'gap-1 overflow-x-auto' : ''" style="height:120px;padding-top:18px" x-show="stats.trend_series">
+              <template x-for="d in (stats.trend_series||[])" :key="d.date">
+                <div class="flex flex-col items-center justify-end shrink-0" :style="trendRange==='week' ? 'width:calc(100%/7);gap:2px' : trendRange==='year' ? 'width:calc(100%/12);gap:2px' : 'width:20px;gap:2px'">
+                  <template x-if="d.count >= 0">
+                    <div class="flex flex-col items-center" style="justify-content:flex-end;flex:1">
+                      <div class="text-[10px] font-bold text-kidorange" x-text="d.count"></div>
+                      <div class="bar" :style="`height: ${Math.min(60, Math.max(3, (trendRange==='year' ? d.count/3 : d.count)*10 + 3))}px`"></div>
+                    </div>
+                  </template>
+                  <template x-if="d.count < 0">
+                    <div class="flex flex-col items-center" style="justify-content:flex-end;flex:1">
+                      <div class="text-[10px] font-bold text-red-500" x-text="d.count"></div>
+                      <div class="bar" :style="`height: ${Math.min(60, Math.max(3, (trendRange==='year' ? Math.abs(d.count)/3 : Math.abs(d.count))*10 + 3))}px; background: linear-gradient(to top, #EF5350, #FFCDD2)`"></div>
+                    </div>
+                  </template>
+                  <div class="text-[10px] text-gray-500" x-text="d.label"></div>
+                </div>
+              </template>
+            </div>
+            <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded" style="background:#FF9500"></span> 获得</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded" style="background:#EF5350"></span> 扣除</span>
+            </div>
+          </div>
+
+          <div class="kid-card p-4">
+            <div class="font-bold text-sm mb-2">👶 我家的小朋友</div>
+            <div class="space-y-2">
+              <template x-for="m in familyMembers.filter(m => m.role==='child')" :key="m.id">
+                <div class="flex items-center justify-between bg-orange-50 rounded-xl px-3 py-2 gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-2xl shrink-0" x-text="m.avatar_emoji"></span>
+                    <span class="font-bold text-sm truncate" x-text="m.username"></span>
+                  </div>
+                  <button @click="openAdjustPoints(m)" class="kid-btn bg-kidorange text-white px-2.5 py-1 text-xs shrink-0">加减分</button>
+                </div>
+              </template>
+              <div x-show="familyMembers.filter(m => m.role==='child').length===0" class="text-center text-gray-400 py-4">
+                <div class="text-4xl mb-2">👶</div>
+                <div>还没有小朋友加入</div>
+                <div class="text-xs mt-1">把邀请码分享给小朋友吧~</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- ========== 底部导航 ========== -->
+      <nav class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg flex z-30" style="max-width:768px;margin:0 auto;-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;">
+        <template x-if="user.role==='child' || (user.role==='parent' && viewMode==='child')">
+          <div class="flex w-full">
+            <div class="nav-tab" :class="{'active': currentTab==='today'}" @click="switchTab('today')">
+              <div class="nav-emoji">📋</div><div class="text-xs font-bold">任务</div>
+            </div>
+            <div class="nav-tab" :class="{'active': currentTab==='points'}" @click="switchTab('points')">
+              <div class="nav-emoji gold-coin"></div><div class="text-xs font-bold">积分</div>
+            </div>
+            <div class="nav-tab" :class="{'active': currentTab==='shop'}" @click="switchTab('shop')">
+              <div class="nav-emoji">🛍️</div><div class="text-xs font-bold">商店</div>
+            </div>
+            <div class="nav-tab" :class="{'active': currentTab==='orders'}" @click="switchTab('orders')">
+              <div class="nav-emoji">🎁</div><div class="text-xs font-bold">兑换</div>
+            </div>
+          </div>
+        </template>
+        <template x-if="user.role==='parent' && viewMode==='parent'">
+          <div class="flex w-full">
+            <div class="nav-tab" :class="{'active': currentTab==='ptasks'}" @click="switchTab('ptasks')">
+              <div class="nav-emoji">📋</div><div class="text-xs font-bold">任务</div>
+            </div>
+            <div class="nav-tab relative" :class="{'active': currentTab==='approve'}" @click="switchTab('approve')">
+              <div class="nav-emoji relative">
+                <span>✅</span>
+                <div x-show="pendingCheckins.length + confirmedOrders.filter(o => !o.purchased).length > 0"
+                     class="absolute inset-0 flex items-center justify-center">
+                  <span class="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shadow-sm"
+                        x-text="pendingCheckins.length + confirmedOrders.filter(o => !o.purchased).length"></span>
+                </div>
+              </div>
+              <div class="text-xs font-bold">审核</div>
+            </div>
+            <div class="nav-tab" :class="{'active': currentTab==='pproducts'}" @click="switchTab('pproducts')">
+              <div class="nav-emoji">🛍️</div><div class="text-xs font-bold">商品</div>
+            </div>
+            <div class="nav-tab" :class="{'active': currentTab==='stats'}" @click="switchTab('stats')">
+              <div class="nav-emoji">📊</div><div class="text-xs font-bold">统计</div>
+            </div>
+          </div>
+        </template>
+      </nav>
+    </div>
+  </template>
+
+  <!-- ========== 任务编辑弹窗 ========== -->
+  <div x-show="taskForm.open" x-transition.opacity class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="taskForm.open=false">
+    <div class="bg-white rounded-3xl w-full max-w-sm pop-in max-h-[102vh] flex flex-col" style="overflow:hidden;">
+      <!-- 固定头部 -->
+      <div class="px-5 pt-5 pb-3 shrink-0">
+        <h3 class="text-xl font-extrabold" x-text="taskForm.id ? '✏️ 编辑任务' : '➕ 新任务'"></h3>
+      </div>
+      <!-- 可滚动表单区域 -->
+      <div class="px-5 pb-3 overflow-y-auto flex-1" style="-webkit-overflow-scrolling:touch;">
+        <div class="space-y-2.5">
+          <!-- emoji -->
+          <div>
+            <div class="text-xs text-gray-500 mb-1">选个 emoji</div>
+            <div class="flex flex-wrap gap-1.5">
+              <template x-for="e in ['⭐','☀️','🪥','🧸','📚','🧹','🌙','🏃','🥦','🎨','🎵','🧮','🛏️','🚿','🧦','📝']" :key="e">
+                <button @click="taskForm.emoji=e" :class="taskForm.emoji===e ? 'bg-kidorange scale-110' : 'bg-orange-50'" class="w-9 h-9 rounded-full text-xl transition" x-text="e"></button>
+              </template>
+            </div>
+          </div>
+          <input type="text" placeholder="任务名称（如：刷牙）" x-model="taskForm.name" class="w-full px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+          <div>
+            <input type="text" placeholder="分类（选填，如：生活习惯、学习）" x-model="taskForm.category" class="w-full px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+            <div x-show="getTaskCategories().length > 0" class="flex flex-wrap gap-1.5 mt-1.5">
+              <template x-for="cat in getTaskCategories()" :key="'tc-'+cat">
+                <button @click="taskForm.category = cat" class="px-2 py-0.5 rounded-full bg-orange-100 text-gray-600 text-xs" x-text="cat"></button>
+              </template>
+            </div>
+          </div>
+          <div class="bg-orange-50 rounded-xl p-2.5">
+            <div class="text-xs text-gray-500 mb-1.5">积分类型</div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button @click="setTaskPointsMode('reward')"
+                      :class="taskForm.points_mode==='reward' ? 'bg-kidorange text-white' : 'bg-white text-gray-600'"
+                      class="py-2.5 rounded-lg font-bold text-xs transition border-2"
+                      :style="taskForm.points_mode==='reward' ? 'border:#FF9500' : 'border:#E0E0E0'">🏆 奖励任务</button>
+              <button @click="setTaskPointsMode('penalty')"
+                      :class="taskForm.points_mode==='penalty' ? 'bg-red-500 text-white' : 'bg-white text-gray-600'"
+                      class="py-2.5 rounded-lg font-bold text-xs transition border-2"
+                      :style="taskForm.points_mode==='penalty' ? 'border:#EF5350' : 'border:#E0E0E0'">🧨 减分任务</button>
+            </div>
+            <div class="mt-2 flex items-center gap-2">
+              <span class="text-xs text-gray-500 whitespace-nowrap">积分值</span>
+              <input type="number"
+                     x-model.number="taskForm.points"
+                     @input="if (taskForm.points_mode==='penalty' && taskForm.points>0) taskForm.points = -Math.abs(taskForm.points); if (taskForm.points_mode==='reward' && taskForm.points<0) taskForm.points = Math.abs(taskForm.points)"
+                     class="flex-1 px-3 py-2 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-kidorange text-base border"
+                     :class="taskForm.points_mode==='penalty' ? 'text-red-500' : 'text-kidorange'" />
+            </div>
+            <div class="text-[11px] text-gray-400 mt-1.5">正数=奖励，负数=减分（如：-3），不能为 0。</div>
+          </div>
+
+          <!-- 重复规则 -->
+          <div>
+            <div class="text-xs text-gray-500 mb-1.5">🔁 重复规则</div>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button @click="taskForm.repeat_type='daily'; taskForm.repeat_config=[]" :class="taskForm.repeat_type==='daily' ? 'bg-kidorange text-white' : 'bg-orange-50 text-gray-600'" class="py-2.5 rounded-lg font-bold text-xs transition">📅 每日</button>
+              <button @click="taskForm.repeat_type='weekly'; if(!taskForm.repeat_config.length) taskForm.repeat_config=[0,1,2,3,4]" :class="taskForm.repeat_type==='weekly' ? 'bg-kidorange text-white' : 'bg-orange-50 text-gray-600'" class="py-2.5 rounded-lg font-bold text-xs transition">📆 每周</button>
+              <button @click="taskForm.repeat_type='monthly'; if(!taskForm.repeat_config.length) taskForm.repeat_config=[1]" :class="taskForm.repeat_type==='monthly' ? 'bg-kidorange text-white' : 'bg-orange-50 text-gray-600'" class="py-2.5 rounded-lg font-bold text-xs transition">🗓️ 每月</button>
+              <button @click="taskForm.repeat_type='fixed'" :class="taskForm.repeat_type==='fixed' ? 'bg-kidorange text-white' : 'bg-orange-50 text-gray-600'" class="py-2.5 rounded-lg font-bold text-xs transition">📌 固定</button>
+            </div>
+          </div>
+
+          <!-- 每周：选哪几天 -->
+          <div x-show="taskForm.repeat_type==='weekly'" class="bg-orange-50 rounded-xl p-2.5">
+            <div class="text-xs text-gray-500 mb-1.5">选择重复的星期</div>
+            <div class="flex gap-1.5 flex-wrap">
+              <template x-for="(label, idx) in ['一','二','三','四','五','六','日'" :key="'w'+idx">
+                <button @click="toggleRepeatVal(idx)"
+                        :class="taskForm.repeat_config.includes(idx) ? 'bg-kidorange text-white' : 'bg-white text-gray-600'"
+                        class="w-9 h-9 rounded-full font-bold text-xs transition border-2"
+                        :style="taskForm.repeat_config.includes(idx) ? 'border:#FF9500' : 'border:#E0E0E0'"
+                        x-text="label"></button>
+              </template>
+            </div>
+          </div>
+
+          <!-- 每月：选几号 -->
+          <div x-show="taskForm.repeat_type==='monthly'" class="bg-orange-50 rounded-xl p-2.5">
+            <div class="text-xs text-gray-500 mb-1.5">选择每月几号</div>
+            <div class="flex gap-1 flex-wrap">
+              <template x-for="d in 31" :key="'m'+d">
+                <button @click="toggleRepeatVal(d)"
+                        :class="taskForm.repeat_config.includes(d) ? 'bg-kidorange text-white' : 'bg-white text-gray-600'"
+                        class="w-8 h-8 rounded-full font-bold text-[11px] transition border"
+                        :style="taskForm.repeat_config.includes(d) ? 'border:#FF9500' : 'border:#E0E0E0'"
+                        x-text="d"></button>
+              </template>
+            </div>
+          </div>
+
+          <!-- 固定日子：日历选择 -->
+          <div x-show="taskForm.repeat_type==='fixed'" class="bg-orange-50 rounded-xl p-2.5">
+            <div class="text-xs text-gray-500 mb-1.5">选择固定日期</div>
+            <input type="date" @change="addFixedDate($event)" class="w-full px-3 py-2 rounded-lg bg-white border focus:outline-none focus:ring-2 focus:ring-kidorange text-sm" />
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <template x-for="d in taskForm.repeat_config" :key="'f'+d">
+                <span @click="removeFixedDate(d)" class="bg-kidorange text-white px-2 py-0.5 rounded-full text-xs font-bold cursor-pointer hover:bg-orange-600 transition" x-text="d + ' ✕'"></span>
+              </template>
+            </div>
+            <div x-show="taskForm.repeat_config.length===0" class="text-[11px] text-gray-400 mt-1">点击上方日历添加日期</div>
+          </div>
+
+          <!-- 分配给哪个小朋友（多个时显示） -->
+          <div x-show="familyMembers.filter(m => m.role==='child').length > 1">
+            <div class="text-xs text-gray-500 mb-1.5">👤 分配给</div>
+            <div class="flex flex-wrap gap-1.5">
+              <button @click="taskForm.assigned_to=[]" :class="taskForm.assigned_to.length===0 ? 'bg-kidorange text-white' : 'bg-orange-50 text-gray-600'" class="px-2.5 py-2.5 rounded-lg font-bold text-xs transition">全部</button>
+              <template x-for="m in familyMembers.filter(m => m.role==='child')" :key="'asgn'+m.id">
+                <button @click="toggleChildAssign(m.id)" :class="taskForm.assigned_to.includes(m.id) ? 'bg-kidblue text-white' : 'bg-orange-50 text-gray-600'" class="px-2.5 py-2.5 rounded-lg font-bold text-xs transition" x-text="m.avatar_emoji + ' ' + m.username"></button>
+              </template>
+            </div>
+            <div class="text-[11px] text-gray-400 mt-1">不选则默认分配给所有小朋友</div>
+          </div>
+        </div>
+      </div>
+      <!-- 固定底部按钮 -->
+      <div class="px-5 py-3 shrink-0 flex gap-3 border-t border-gray-100">
+        <button @click="taskForm.open=false" class="kid-btn flex-1 bg-gray-200 text-gray-700 py-2.5 text-sm">取消</button>
+        <button @click="saveTask()" class="kid-btn flex-1 bg-kidgreen text-white py-2.5 text-sm">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 商品编辑弹窗 ========== -->
+  <div x-show="productForm.open" x-transition.opacity class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="productForm.open=false">
+    <div class="bg-white rounded-3xl w-full max-w-sm pop-in max-h-[102vh] flex flex-col" style="overflow:hidden;">
+      <!-- 固定头部 -->
+      <div class="px-5 pt-5 pb-3 shrink-0">
+        <h3 class="text-xl font-extrabold" x-text="productForm.id ? '✏️ 编辑商品' : '➕ 新商品'"></h3>
+      </div>
+      <!-- 可滚动表单区域 -->
+      <div class="px-5 pb-3 overflow-y-auto flex-1" style="-webkit-overflow-scrolling:touch;">
+        <div class="space-y-2.5">
+          <div class="flex justify-center">
+            <label class="w-24 h-24 rounded-2xl bg-orange-50 flex items-center justify-center cursor-pointer overflow-hidden relative">
+              <template x-if="productForm.preview || productForm.image_url">
+                <img :src="productForm.preview || productForm.image_url" class="w-full h-full object-cover" />
+              </template>
+              <template x-if="!productForm.preview && !productForm.image_url">
+                <div class="text-center text-gray-400">
+                  <div class="text-2xl">📷</div>
+                  <div class="text-xs">点击上传</div>
+                </div>
+              </template>
+              <input type="file" accept="image/*" class="hidden" @change="onProductImage($event)" />
+            </label>
+          </div>
+          <input type="text" placeholder="商品名称" x-model="productForm.name" class="w-full px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+          <input type="number" placeholder="积分价格" x-model.number="productForm.price" class="w-full px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+          <div class="flex gap-2 items-center">
+            <input type="number" placeholder="库存" x-model.number="productForm.stock" class="min-w-0 flex-1 px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+            <button @click="productForm.stock=-1" :class="productForm.stock===-1 ? 'bg-kidorange text-white' : 'bg-orange-100 text-gray-600'" class="kid-btn px-2.5 py-2.5 rounded-xl font-bold text-xs shrink-0">无限</button>
+            <button @click="productForm.stock=1" :class="productForm.stock===1 ? 'bg-kidorange text-white' : 'bg-orange-100 text-gray-600'" class="kid-btn px-2.5 py-2.5 rounded-xl font-bold text-xs shrink-0">单品</button>
+          </div>
+          <div class="flex gap-2 items-center">
+            <input type="number" placeholder="数量" x-model.number="productForm.quantity" class="w-20 px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base shrink-0" />
+            <input type="text" placeholder="单位（个/包/次/分钟…）" x-model="productForm.unit" class="min-w-0 flex-1 px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+          </div>
+          <input type="text" placeholder="分类（选填，如：玩具、零食）" x-model="productForm.category" class="w-full px-3 py-2.5 rounded-xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-base" />
+        </div>
+      </div>
+      <!-- 固定底部按钮 -->
+      <div class="px-5 py-3 shrink-0 flex gap-3 border-t border-gray-100">
+        <button @click="productForm.open=false" class="kid-btn flex-1 bg-gray-200 text-gray-700 py-2.5 text-sm">取消</button>
+        <button @click="saveProduct()" class="kid-btn flex-1 bg-kidgreen text-white py-2.5 text-sm">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 设置弹窗 ========== -->
+  <div x-show="showSettings" x-transition.opacity class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" @click.self="showSettings=false">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-sm pop-in">
+      <h3 class="text-xl font-extrabold mb-4 text-center">⚙️ 设置</h3>
+
+      <!-- 家庭邀请码（仅家长可见） -->
+      <template x-if="user.role==='parent'">
+        <div class="mb-5">
+          <div class="font-bold text-gray-700 mb-2">📨 家庭邀请码</div>
+          <div class="bg-orange-50 rounded-2xl py-3 px-4 text-center">
+            <div class="text-xl font-extrabold text-kidorange tracking-widest" x-text="family?.invite_code"></div>
+          </div>
+          <p class="text-gray-400 text-xs mt-2">把邀请码告诉家人，让 TA 注册时填入</p>
+        </div>
+      </template>
+
+      <!-- 修改密码 -->
+      <div class="mb-4">
+        <div class="font-bold text-gray-700 mb-3">🔒 修改密码</div>
+        <div class="space-y-3">
+          <input type="password" placeholder="原密码" x-model="pwdForm.old_password" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <input type="password" placeholder="新密码（至少4位）" x-model="pwdForm.new_password" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <input type="password" placeholder="确认新密码" x-model="pwdForm.confirm_password" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <button @click="changePassword()" :disabled="loading" class="kid-btn w-full bg-kidorange text-white py-3 text-lg">
+            <span x-show="!loading">确认修改</span>
+            <span x-show="loading">修改中...</span>
+          </button>
+        </div>
+      </div>
+
+      <button @click="showSettings=false" class="kid-btn w-full bg-gray-200 text-gray-700 py-3 mt-2">关闭</button>
+    </div>
+  </div>
+
+  <!-- ========== 儿童选择弹窗 ========== -->
+  <div x-show="childPickerOpen" x-transition.opacity class="fixed inset-0 bg-black/50 flex items-center justify-center z-[65] p-6" @click.self="childPickerOpen=false">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-xs pop-in">
+      <div class="text-center mb-4">
+        <div class="text-3xl mb-2">👧👦</div>
+        <div class="font-extrabold text-base text-gray-700">选择要查看的小朋友</div>
+      </div>
+      <div class="space-y-2">
+        <template x-for="kid in children" :key="kid.id">
+          <button @click="pickChild(kid.id)"
+                  class="w-full flex items-center gap-3 p-3 rounded-2xl transition active:scale-95"
+                  :class="viewMode==='child' && viewAsChildId===kid.id ? 'bg-kidorange/10 ring-2 ring-kidorange' : 'bg-orange-50 hover:bg-orange-100'">
+            <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-2xl shadow-sm" x-text="kid.avatar_emoji"></div>
+            <span class="font-bold text-sm" x-text="kid.username"></span>
+          </button>
+        </template>
+      </div>
+      <button @click="childPickerOpen=false" class="w-full mt-3 py-2 text-sm text-gray-400 font-bold">取消</button>
+    </div>
+  </div>
+
+  <!-- ========== 自定义确认弹窗 ========== -->
+  <div x-show="confirmDialog.open" x-transition.opacity class="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-6">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-xs pop-in text-center">
+      <div class="text-4xl mb-3">🤔</div>
+      <p class="text-gray-700 text-base font-bold mb-5 whitespace-pre-line" x-text="confirmDialog.message"></p>
+      <div class="flex gap-3">
+        <button @click="confirmCancel()" class="kid-btn flex-1 bg-gray-200 text-gray-700 py-3">取消</button>
+        <button @click="confirmOk()" class="kid-btn flex-1 bg-kidorange text-white py-3">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 图片裁剪弹窗 ========== -->
+  <div x-show="cropModal.open" x-transition.opacity class="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+    <div class="bg-white rounded-3xl p-4 w-full max-w-md pop-in">
+      <h3 class="text-lg font-extrabold mb-3 text-center">✂️ 裁剪图片</h3>
+      <div class="w-full aspect-square rounded-xl overflow-hidden bg-gray-100 mb-4">
+        <img x-ref="cropImage" class="block max-w-full" />
+      </div>
+      <div class="flex gap-3">
+        <button @click="cancelCrop()" class="kid-btn flex-1 bg-gray-200 text-gray-700 py-3">取消</button>
+        <button @click="confirmCrop()" class="kid-btn flex-1 bg-kidorange text-white py-3">确定裁剪</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 图片大图预览弹窗 ========== -->
+  <div x-show="imagePreview.open" x-transition.opacity class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-6" @click="imagePreview.open=false">
+    <div class="relative max-w-sm w-full" @click.stop>
+      <img :src="imagePreview.src" class="w-full rounded-2xl shadow-2xl" />
+      <button @click="imagePreview.open=false" class="absolute -top-3 -right-3 w-9 h-9 bg-white rounded-full shadow-lg flex items-center justify-center text-xl font-bold text-gray-600">✕</button>
+    </div>
+  </div>
+
+  <!-- ========== 家庭信息弹窗 ========== -->
+  <div x-show="showFamilyInfo" x-transition.opacity class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" @click.self="showFamilyInfo=false">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-sm pop-in text-center">
+      <div class="text-6xl">📨</div>
+      <h3 class="text-xl font-extrabold mt-2">我的家庭</h3>
+      <div class="bg-orange-50 rounded-2xl py-4 my-4">
+        <div class="text-gray-500 text-sm">家庭邀请码</div>
+        <div class="text-2xl font-extrabold text-kidorange tracking-widest mt-1" x-text="family?.invite_code"></div>
+      </div>
+      <p class="text-gray-500 text-sm">把邀请码告诉家人，让 TA 注册时填入</p>
+      <button @click="showFamilyInfo=false" class="kid-btn w-full bg-kidorange text-white py-3 mt-4">知道啦</button>
+    </div>
+  </div>
+
+  <!-- ========== 加减分弹窗 ========== -->
+  <div x-show="adjustPointsForm.open" x-transition.opacity class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" @click.self="adjustPointsForm.open=false">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-sm pop-in">
+      <h3 class="text-xl font-extrabold mb-1 text-center">🧮 加减分</h3>
+      <div class="text-center text-gray-500 text-sm mb-4">
+        给 <span class="font-bold text-kidorange" x-text="adjustPointsForm.child_name"></span> 调整积分
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-bold text-gray-600 mb-1">分数</label>
+          <input type="number" x-model.number="adjustPointsForm.amount" placeholder="正数加分，负数减分，如 5 或 -3" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg" />
+          <div class="text-xs text-gray-400 mt-1">正数表示加分，负数表示减分，不能为 0。</div>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-600 mb-1">原因</label>
+          <textarea x-model="adjustPointsForm.reason" placeholder="填写加减分原因" rows="3" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button @click="adjustPointsForm.open=false" class="kid-btn flex-1 bg-gray-200 text-gray-700 py-3">取消</button>
+        <button @click="submitAdjustPoints()" class="kid-btn flex-1 bg-kidorange text-white py-3">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 清除售罄确认弹窗 ========== -->
+  <div x-show="clearSoldoutForm.open" x-transition.opacity class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" @click.self="clearSoldoutForm.open=false">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-sm pop-in">
+      <h3 class="text-xl font-extrabold mb-1 text-center">🔐 确认清除</h3>
+      <div class="text-center text-gray-500 text-sm mb-4">清除所有售罄商品，此操作不可撤销</div>
+      <input type="password" x-model="clearSoldoutForm.password" @keyup.enter="clearSoldout()" placeholder="请输入登录密码确认" class="w-full px-4 py-3 rounded-2xl bg-orange-50 focus:outline-none focus:ring-2 focus:ring-kidorange text-lg mb-4" />
+      <div class="flex gap-3">
+        <button @click="clearSoldoutForm.open=false" class="kid-btn flex-1 bg-gray-200 text-gray-700 py-3">取消</button>
+        <button @click="clearSoldout()" class="kid-btn flex-1 bg-red-400 text-white py-3">确认清除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Toast ========== -->
+  <template x-for="t in toasts" :key="t.id">
+    <div class="fixed top-6 left-1/2 z-[100] px-5 py-3 rounded-full shadow-lg font-bold toast-anim"
+         :class="t.type==='success' ? 'bg-kidgreen text-white' : (t.type==='error' ? 'bg-red-400 text-white' : 'bg-kidblue text-white')"
+         x-text="t.message"></div>
+  </template>
+
+  <!-- ========== 全局加载遮罩 ========== -->
+  <div x-show="globalLoading" x-transition.opacity class="fixed inset-0 bg-black/30 flex items-center justify-center z-[200]">
+    <div class="bg-white rounded-3xl p-6 flex flex-col items-center gap-2">
+      <div class="loading-spinner"></div>
+      <div class="font-bold text-gray-600">加载中...</div>
+    </div>
+  </div>
+
+  <style>[x-cloak] { display: none !important; }</style>
+  <script src="/static/app.js"></script>
+</body>
+</html>

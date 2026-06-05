@@ -1,0 +1,19 @@
+services:
+  kids-tasks:
+    build: .
+    command:
+    - gunicorn
+    - -w
+    - '2'
+    - -b
+    - 0.0.0.0:8088
+    - app:app
+    container_name: kids-tasks
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+    - ./static:/app/static
+    - ./templates:/app/templates
