@@ -646,7 +646,16 @@ def create_app():
         items = Product.query.filter_by(family_id=u.family_id, is_active=True).order_by(
             Product.sort_order.asc(), Product.id.asc()
         ).all()
-        return jsonify([p.to_dict() for p in items])
+        # 获取家庭倍率
+        family = Family.query.get(u.family_id)
+        multiplier = family.redeem_multiplier or 1.0
+        import math
+        result = []
+        for p in items:
+            d = p.to_dict()
+            d['actual_price'] = math.ceil(d['price'] * multiplier)
+            result.append(d)
+        return jsonify(result)
 
     @app.post('/api/products')
     @parent_required
@@ -819,8 +828,14 @@ def create_app():
         else:
             child = u
 
+        # 应用积分倍率（向上取整）
+        family = Family.query.get(u.family_id)
+        multiplier = family.redeem_multiplier or 1.0
+        import math
+        actual_price = math.ceil(p.price * multiplier)
+
         balance = PointBalance.query.filter_by(child_id=child.id).first()
-        if not balance or balance.balance < p.price:
+        if not balance or balance.balance < actual_price:
             return jsonify({'error': '积分不足'}), 400
 
         # 检查是否已有同商品 pending 订单
@@ -829,7 +844,7 @@ def create_app():
             family_id=u.family_id,
             child_id=child.id,
             product_id=p.id,
-            points_cost=p.price,
+            points_cost=actual_price,
             status='confirmed',
             confirmed_by=u.id,
             confirmed_at=datetime.utcnow(),
@@ -839,13 +854,13 @@ def create_app():
         # 自动扣减积分和库存
         if p.stock > 0:
             p.stock -= 1
-        balance.balance -= p.price
-        balance.total_spent += p.price
+        balance.balance -= actual_price
+        balance.total_spent += actual_price
 
         tx = PointTransaction(
             family_id=u.family_id,
             child_id=child.id,
-            amount=-p.price,
+            amount=-actual_price,
             balance_after=balance.balance,
             type='spend',
             reference_id=o.id,
@@ -853,7 +868,7 @@ def create_app():
         )
         db.session.add(tx)
         db.session.commit()
-        return jsonify({'ok': True, 'order_id': o.id, 'balance': balance.balance})
+        return jsonify({'ok': True, 'order_id': o.id, 'balance': balance.balance, 'actual_price': actual_price})
 
     @app.get('/api/orders/pending')
     @parent_required
@@ -1254,6 +1269,37 @@ def create_app():
         u = request.current_user
         members = User.query.filter_by(family_id=u.family_id).all()
         return jsonify([m.to_dict() for m in members])
+
+    # ===================== 家庭设置 =====================
+    @app.get('/api/family/settings')
+    @login_required
+    def family_settings():
+        u = request.current_user
+        family = Family.query.get(u.family_id)
+        return jsonify({
+            'redeem_multiplier': family.redeem_multiplier or 1.0,
+        })
+
+    @app.put('/api/family/settings')
+    @parent_required
+    def family_settings_update():
+        u = request.current_user
+        family = Family.query.get(u.family_id)
+        data = request.get_json(force=True, silent=True) or {}
+        
+        if 'redeem_multiplier' in data:
+            try:
+                multiplier = float(data['redeem_multiplier'])
+                if multiplier < 0.1 or multiplier > 10:
+                    return jsonify({'error': '倍率范围 0.1 ~ 10'}), 400
+                family.redeem_multiplier = multiplier
+            except (TypeError, ValueError):
+                return jsonify({'error': '倍率必须是数字'}), 400
+        
+        db.session.commit()
+        return jsonify({
+            'redeem_multiplier': family.redeem_multiplier or 1.0,
+        })
 
     return app
 

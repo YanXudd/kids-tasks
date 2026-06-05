@@ -8,6 +8,7 @@ class Family(db.Model):
     __tablename__ = 'families'
     id = db.Column(db.Integer, primary_key=True)
     invite_code = db.Column(db.String(16), unique=True, nullable=False)
+    redeem_multiplier = db.Column(db.Float, default=1.0)  # 商品兑换积分倍率
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

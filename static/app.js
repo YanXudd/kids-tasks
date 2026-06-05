@@ -19,6 +19,7 @@ function kidsApp() {
       username: '', password: '',
       role: 'child', avatar_emoji: '🧒', invite_code: '',
     },
+    redeemMultiplier: 1.0,
 
     // 数据
     todayTasks: [],
@@ -70,6 +71,10 @@ function kidsApp() {
           this.family = r.family;
           this.setDefaultTab();
           await this.refreshAll();
+          // 加载家庭设置（倍率）
+          if (this.user.role === 'parent') {
+            await this.loadMultiplier();
+          }
         } catch (e) {
           this.logout();
         }
@@ -761,10 +766,11 @@ function kidsApp() {
       if (p.stock === 0) {
         return this.toast('该商品已售罄 😅', 'error');
       }
-      if (this.pointsBalance < p.price) {
+      const actualPrice = p.actual_price || p.price;
+      if (this.pointsBalance < actualPrice) {
         return this.toast('积分不足哦 😅', 'error');
       }
-      if (!await this.showConfirm(`用 ${p.price} 积分兑换「${p.name}」吗？`)) return;
+      if (!await this.showConfirm(`用 ${actualPrice} 积分兑换「${p.name}」吗？`)) return;
       (async () => {
         try {
           const body = { product_id: p.id };
@@ -884,6 +890,33 @@ function kidsApp() {
         this.toast(r.message, 'success');
         this.pwdForm = { old_password: '', new_password: '', confirm_password: '' };
         this.showSettings = false;
+      } catch (e) {
+        this.toast(e.message, 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // ============ 积分倍率设置 ============
+    async loadMultiplier() {
+      try {
+        const r = await this.api('GET', '/api/family/settings');
+        this.redeemMultiplier = r.redeem_multiplier || 1.0;
+      } catch (e) {
+        console.error('加载倍率失败:', e);
+      }
+    },
+    async saveMultiplier() {
+      if (this.redeemMultiplier < 0.1 || this.redeemMultiplier > 10) {
+        return this.toast('倍率范围 0.1 ~ 10', 'error');
+      }
+      this.loading = true;
+      try {
+        const r = await this.api('PUT', '/api/family/settings', {
+          redeem_multiplier: this.redeemMultiplier
+        });
+        this.redeemMultiplier = r.redeem_multiplier;
+        this.toast('倍率已保存 ✓', 'success');
       } catch (e) {
         this.toast(e.message, 'error');
       } finally {
