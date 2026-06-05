@@ -60,7 +60,7 @@ def create_app():
         database_url = database_url.replace('mysql://', 'mysql+pymysql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET'] = os.getenv('JWT_SECRET', 'kids-tasks-super-secret-key-please-change-2026')
+    app.config['JWT_SECRET'] = os.getenv('JWT_SECRET', 'please-set-JWT_SECRET-in-env')
     app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8MB
     db.init_app(app)
 
